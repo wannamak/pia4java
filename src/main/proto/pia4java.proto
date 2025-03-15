@@ -1,0 +1,14 @@
+syntax = "proto2";
+
+package pia4java;
+
+option java_package = "pia4java";
+option java_outer_classname = "Proto";
+
+message PiaConfig {
+  optional string pia_wireguard_server = 1;
+  optional int32 pia_wireguard_port = 2;
+  optional string pia_username = 3;
+  optional string pia_password = 4;
+  optional string target_domain = 5;
+}

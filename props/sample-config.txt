@@ -1,0 +1,5 @@
+pia_wireguard_server: "us-new-hampshire-pf.privacy.network"
+pia_wireguard_port: 1337
+pia_username: "pxxxxxx"
+pia_password: "secret"
+target_domain: "npr.org"

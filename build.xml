@@ -1,0 +1,30 @@
+<project name="pia4java" default="build">
+  <property name="bin" location="bin" />
+
+  <path id="main-classpath">
+    <fileset dir="lib" includes="*.jar" />
+    <path location="${bin}" />
+  </path>
+
+  <available file="/usr/bin/protoc" type="file" property="protoc" value="/usr/bin/protoc" />
+
+  <target name="build_proto">
+    <exec executable="${protoc}">
+      <arg value="--java_out=src/main/java"/>
+      <arg value="src/main/proto/pia4java.proto"/>
+    </exec>
+  </target>
+
+  <target name="build" depends="build_proto">
+    <mkdir dir="${bin}" />
+    <javac srcdir="src/main/java" includes="**" destdir="${bin}" includeantruntime="false" debug="true" >
+      <classpath>
+        <path refid="main-classpath"/>
+      </classpath>
+    </javac>
+  </target>
+
+  <target name="clean">
+    <delete dir="bin" />
+  </target>
+</project>
