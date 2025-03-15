@@ -31,11 +31,12 @@ public class PiaManager {
 
   public static void main(String args[]) throws Exception {
      Preconditions.checkState(args.length == 2,
-         "up|down");
+         "up|down|restart");
      PiaManager piaManager = new PiaManager(loadConfig(args[0]));
      switch (args[1]) {
        case "up" -> piaManager.connect();
        case "down" -> piaManager.disconnect();
+       case "restart" -> { piaManager.disconnect(); piaManager.connect(); }
        default -> throw new IllegalStateException("Unrecognized command " + args[1]);
      }
   }
