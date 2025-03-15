@@ -6,6 +6,7 @@
     <path location="${bin}" />
   </path>
 
+  <available file="/usr/local/bin/protoc" type="file" property="protoc" value="/usr/local/bin/protoc" />
   <available file="/usr/bin/protoc" type="file" property="protoc" value="/usr/bin/protoc" />
 
   <target name="build_proto">
