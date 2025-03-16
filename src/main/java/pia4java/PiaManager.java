@@ -47,18 +47,27 @@ public class PiaManager {
   }
 
   public void connect() throws IOException, CertificateException, NoSuchAlgorithmException, KeyStoreException, KeyManagementException, InterruptedException {
-    String[] flightAwareIps = runCommand("", new String[] { "dig", "+short", config.getTargetDomain() })
-        .outputFromCommand.split("\\n");
+    String[] allowedIps = new String[0];
+    if (config.hasTargetDomain()) {
+      allowedIps = runCommand("", new String[]{"dig", "+short", config.getTargetDomain()})
+          .outputFromCommand.split("\\n");
+    }
+
     String token = retrieveToken();
+
     String privateKey = runCommand("", new String[] { "wg", "genkey" }).outputFromCommand;
     String publicKey = runCommand(privateKey, new String[] { "wg", "pubkey" }).outputFromCommand;
     logger.fine("Private key [" + privateKey + "]");
     logger.fine("Public  key [" + publicKey + "]");
+
     AddKeyResponse addKeyResponse = addKey(token, publicKey);
     logger.fine("Add key     [" + addKeyResponse + "]");
-    String wireguardConfiguration = addKeyResponse.getWireGuardConfiguration(privateKey, flightAwareIps);
+
+    String wireguardConfiguration = addKeyResponse.getWireGuardConfiguration(privateKey, allowedIps);
+
     Files.deleteIfExists(PIA_WIREGUARD_CONF_PATH.toPath());
     Files.writeString(PIA_WIREGUARD_CONF_PATH.toPath(), wireguardConfiguration);
+
     int exitValue = runCommand("", new String[] { "wg-quick", "up", "pia" }).exitValue;
     Preconditions.checkState(exitValue == 0, exitValue);
   }
@@ -77,7 +86,8 @@ public class PiaManager {
     params.put("username", config.getPiaUsername());
     params.put("password", config.getPiaPassword());
     TokenResponse tokenResponse =
-        new pia4java.SimpleRestClient<TokenResponse>(trustManager).post(params, PIA_GET_TOKEN_URL, TokenResponse.class);
+        new pia4java.SimpleRestClient<TokenResponse>(trustManager).post(
+            params, PIA_GET_TOKEN_URL, TokenResponse.class);
     return tokenResponse.token;
   }
 
@@ -108,11 +118,15 @@ public class PiaManager {
 
     String getWireGuardConfiguration(String privateKey, String[] allowedIps) {
       String allowedIpsCombined = "";
-      for (int i = 0; i < allowedIps.length; i++) {
-        if (i > 0) {
-          allowedIpsCombined += ", ";
+      if (allowedIps.length > 0) {
+        for (int i = 0; i < allowedIps.length; i++) {
+          if (i > 0) {
+            allowedIpsCombined += ", ";
+          }
+          allowedIpsCombined += allowedIps[i] + "/32";
         }
-        allowedIpsCombined += allowedIps[i] + "/32";
+      } else {
+        allowedIpsCombined = "0.0.0.0/0";
       }
       return String.format(
           "[Interface]\n" +
@@ -133,7 +147,7 @@ public class PiaManager {
   }
 
   private AddKeyResponse addKey(String token, String publicKey)
-      throws IOException, NoSuchAlgorithmException, KeyManagementException, CertificateException, KeyStoreException {
+      throws IOException, NoSuchAlgorithmException, KeyManagementException {
     Map<String, String> params = Map.of("pt", token, "pubkey", publicKey);
     pia4java.SimpleRestClient<AddKeyResponse> client = new pia4java.SimpleRestClient<>(trustManager);
     AddKeyResponse response =
@@ -155,7 +169,8 @@ public class PiaManager {
     }
   }
 
-  private CommandResult runCommand(String inputToCommand, String[] command) throws IOException, InterruptedException {
+  private CommandResult runCommand(String inputToCommand, String[] command)
+      throws IOException, InterruptedException {
     Runtime runtime = Runtime.getRuntime();
     Process process = runtime.exec(command);
 
