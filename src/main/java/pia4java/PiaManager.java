@@ -66,7 +66,6 @@ public class PiaManager {
   public void disconnect() throws IOException, InterruptedException {
     int exitValue = runCommand("", new String[] { "wg-quick", "down", "pia" }).exitValue;
     Preconditions.checkState(exitValue == 0, exitValue);
-    Files.deleteIfExists(PIA_WIREGUARD_CONF_PATH.toPath());
   }
 
   private static class TokenResponse {
