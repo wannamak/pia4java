@@ -46,18 +46,25 @@ public class PiaManager {
     this.trustManager = new pia4java.PiaTrustManager();
   }
 
-  public void connect() throws IOException, CertificateException, NoSuchAlgorithmException, KeyStoreException, KeyManagementException, InterruptedException {
+  public void connect() throws IOException, NoSuchAlgorithmException, KeyManagementException, InterruptedException {
     String[] allowedIps = new String[0];
     if (config.hasTargetDomain()) {
-      allowedIps = runCommand("", new String[]{"dig", "+short", config.getTargetDomain()})
-          .outputFromCommand.split("\\n");
+      CommandResult result = runCommand("",
+          new String[]{"dig", "+short", config.getTargetDomain()});
+      Preconditions.checkState(result.exitValue == 0, result);
+      allowedIps = result.stdout.split("\\n");
     }
 
     String token = retrieveToken();
 
-    String privateKey = runCommand("", new String[] { "wg", "genkey" }).outputFromCommand;
-    String publicKey = runCommand(privateKey, new String[] { "wg", "pubkey" }).outputFromCommand;
+    CommandResult result = runCommand("", new String[] { "wg", "genkey" });
+    Preconditions.checkState(result.exitValue == 0, result);
+    String privateKey = result.stdout;
     logger.fine("Private key [" + privateKey + "]");
+
+    result = runCommand(privateKey, new String[] { "wg", "pubkey" });
+    Preconditions.checkState(result.exitValue == 0, result);
+    String publicKey = result.stdout;
     logger.fine("Public  key [" + publicKey + "]");
 
     AddKeyResponse addKeyResponse = addKey(token, publicKey);
@@ -68,13 +75,13 @@ public class PiaManager {
     Files.deleteIfExists(PIA_WIREGUARD_CONF_PATH.toPath());
     Files.writeString(PIA_WIREGUARD_CONF_PATH.toPath(), wireguardConfiguration);
 
-    int exitValue = runCommand("", new String[] { "wg-quick", "up", "pia" }).exitValue;
-    Preconditions.checkState(exitValue == 0, exitValue);
+    result = runCommand("", new String[] { "wg-quick", "up", "pia" });
+    Preconditions.checkState(result.exitValue == 0, result);
   }
 
   public void disconnect() throws IOException, InterruptedException {
-    int exitValue = runCommand("", new String[] { "wg-quick", "down", "pia" }).exitValue;
-    Preconditions.checkState(exitValue == 0, exitValue);
+    CommandResult result = runCommand("", new String[] { "wg-quick", "down", "pia" });
+    Preconditions.checkState(result.exitValue == 0, result);
   }
 
   private static class TokenResponse {
@@ -161,13 +168,26 @@ public class PiaManager {
   }
 
   private static class CommandResult {
-    final String outputFromCommand;
+    final String stdout;
+    final String stderr;
     final int exitValue;
-    CommandResult(String outputFromCommand, int exitValue) {
-      this.outputFromCommand = outputFromCommand;
+    CommandResult(String stdout, String stderr, int exitValue) {
+      this.stdout = stdout;
+      this.stderr = stderr;
       this.exitValue = exitValue;
     }
+
+    @Override
+    public String toString() {
+      return MoreObjects.toStringHelper(this)
+          .add("stdout", stdout)
+          .add("stderr", stderr)
+          .add("exitValue", exitValue)
+          .toString();
+    }
   }
+
+  private static final int WAIT_FOR_PROCESS_SECONDS = 5;
 
   private CommandResult runCommand(String inputToCommand, String[] command)
       throws IOException, InterruptedException {
@@ -180,18 +200,15 @@ public class PiaManager {
       outputStream.close();
     }
 
-    byte[] stderr = process.getErrorStream().readAllBytes();
-    if (stderr.length > 0) {
-      logger.info(new String(stderr));
-    }
-    String outputFromCommand = new String(process.getInputStream().readAllBytes()).stripTrailing();
-    Preconditions.checkState(process.waitFor(5, TimeUnit.SECONDS));
-    return new CommandResult(outputFromCommand, process.exitValue());
+    String stderr = new String(process.getErrorStream().readAllBytes()).stripTrailing();
+    String stdout = new String(process.getInputStream().readAllBytes()).stripTrailing();
+    Preconditions.checkState(process.waitFor(WAIT_FOR_PROCESS_SECONDS, TimeUnit.SECONDS));
+    return new CommandResult(stdout, stderr, process.exitValue());
   }
 
   private static Proto.PiaConfig loadConfig(String path) throws IOException {
     Proto.PiaConfig.Builder builder = pia4java.Proto.PiaConfig.newBuilder();
-    logger.info("Reading config from " + path);
+    logger.fine("Reading config from " + path);
     try (BufferedReader br = new BufferedReader(new FileReader(path))) {
       TextFormat.merge(br, builder);
     }
