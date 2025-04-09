@@ -11,7 +11,7 @@ for JAR_FILE in "$LIB"/*.jar; do
 done
 
 java \
-  -Djava.util.logging.config.file=$PROPS/logging.properties \
+  -Djava.util.logging.config.file=$PROPS/file.logging.properties \
   -cp $CP \
   pia4java.PiaManager \
   $PROPS/config.txt \
