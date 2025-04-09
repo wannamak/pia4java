@@ -81,6 +81,10 @@ public class PiaManager {
 
   public void disconnect() throws IOException, InterruptedException {
     CommandResult result = runCommand("", new String[] { "wg-quick", "down", "pia" });
+    if (result.exitValue != 0
+        && result.stderr.contains("is not a WireGuard interface")) {
+      return;
+    }
     Preconditions.checkState(result.exitValue == 0, result);
   }
 
